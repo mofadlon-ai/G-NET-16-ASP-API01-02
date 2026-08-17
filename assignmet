@@ -1,0 +1,334 @@
+using Microsoft.AspNetCore.Mvc;
+
+namespace ECommerce.API.Controllers;
+
+[ApiController]
+[Route("[controller]")]
+public class WeatherForecastController : ControllerBase
+{
+    private static readonly string[] Summaries =
+    {
+        "Freezing",
+        "Bracing",
+        "Chilly",
+        "Cool",
+        "Mild",
+        "Warm",
+        "Balmy",
+        "Hot",
+        "Sweltering"
+    };
+
+    private readonly ILogger<WeatherForecastController> _logger;
+
+    public WeatherForecastController(
+        ILogger<WeatherForecastController> logger)
+    {
+        _logger = logger;
+    }
+
+    [HttpGet]
+    public IEnumerable<WeatherForecast> Get()
+    {
+        return Enumerable.Range(1, 5)
+            .Select(index => new WeatherForecast
+            {
+                Date = DateOnly.FromDateTime(
+                    DateTime.Now.AddDays(index)),
+                TemperatureC = Random.Shared.Next(-20, 55),
+                Summary = Summaries[
+                    Random.Shared.Next(Summaries.Length)]
+            })
+            .ToArray();
+    }
+}
+namespace ECommerce.API;
+
+public class WeatherForecast
+{
+    public DateOnly Date { get; set; }
+
+    public int TemperatureC { get; set; }
+
+    public int TemperatureF =>
+        32 + (int)(TemperatureC / 0.5556);
+
+    public string? Summary { get; set; }
+}
+namespace ECommerce.Domain.Entities;
+
+public abstract class BaseEntity
+{
+    public int Id { get; set; }
+}
+public interface IGenericRepository<TEntity>
+    where TEntity : BaseEntity
+{
+    Task<TEntity?> GetByIdAsync(int id);
+
+    Task<IReadOnlyList<TEntity>> GetAllAsync();
+
+    Task AddAsync(TEntity entity);
+
+    void Update(TEntity entity);
+
+    void Delete(TEntity entity);
+}
+public class GenericRepository<TEntity>
+    : IGenericRepository<TEntity>
+    where TEntity : BaseEntity
+{
+    protected readonly StoreDbContext _context;
+
+    public GenericRepository(StoreDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<TEntity?> GetByIdAsync(int id)
+    {
+        return await _context.Set<TEntity>()
+            .FindAsync(id);
+    }
+
+    public async Task<IReadOnlyList<TEntity>> GetAllAsync()
+    {
+        return await _context.Set<TEntity>()
+            .ToListAsync();
+    }
+
+    public async Task AddAsync(TEntity entity)
+    {
+        await _context.Set<TEntity>()
+            .AddAsync(entity);
+    }
+
+    public void Update(TEntity entity)
+    {
+        _context.Set<TEntity>()
+            .Update(entity);
+    }
+
+    public void Delete(TEntity entity)
+    {
+        _context.Set<TEntity>()
+            .Remove(entity);
+    }
+}
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddDbContext<StoreDbContext>();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+using Microsoft.AspNetCore.Mvc;
+
+namespace ECommerce.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult GetProducts()
+    {
+        return Ok();
+    }
+
+    [HttpGet("{id}")]
+    public IActionResult GetProduct(int id)
+    {
+        return Ok();
+    }
+
+    [HttpPost]
+    public IActionResult CreateProduct()
+    {
+        return Ok();
+    }
+
+    [HttpPut("{id}")]
+    public IActionResult UpdateProduct(int id)
+    {
+        return Ok();
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult DeleteProduct(int id)
+    {
+        return Ok();
+    }
+}
+using ECommerce.Domain.Entities;
+
+namespace ECommerce.Domain.Entities;
+
+public class Product : BaseEntity
+{
+    public string Name { get; set; } = default!;
+
+    public string Description { get; set; } = default!;
+
+    public string PictureUrl { get; set; } = default!;
+
+    public decimal Price { get; set; }
+}
+using ECommerce.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Data;
+
+public class StoreDbContext
+    : DbContext
+{
+    public StoreDbContext(
+        DbContextOptions<StoreDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<Product> Products { get; set; }
+
+    protected override void OnModelCreating(
+        ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(StoreDbContext).Assembly);
+    }
+}
+using ECommerce.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace ECommerce.Infrastructure.Data.Configurations;
+
+public class ProductConfiguration
+    : IEntityTypeConfiguration<Product>
+{
+    public void Configure(
+        EntityTypeBuilder<Product> builder)
+    {
+        builder.Property(p => p.Name)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(p => p.Description)
+            .IsRequired()
+            .HasMaxLength(500);
+
+        builder.Property(p => p.PictureUrl)
+            .IsRequired();
+
+        builder.Property(p => p.Price)
+            .HasColumnType("decimal(18,2)");
+    }
+}
+using ECommerce.Domain.Entities;
+using ECommerce.Infrastructure.Data;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public class ProductRepository
+{
+    private readonly StoreDbContext _context;
+
+    public ProductRepository(
+        StoreDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<List<Product>> GetProductsAsync()
+    {
+        return await _context.Products
+            .ToListAsync();
+    }
+
+    public async Task<Product?> GetProductAsync(int id)
+    {
+        return await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task AddProductAsync(Product product)
+    {
+        await _context.Products.AddAsync(product);
+
+        await _context.SaveChangesAsync();
+    }
+}
+using ECommerce.Domain.Entities;
+using ECommerce.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Mvc;
+
+namespace ECommerce.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController
+    : ControllerBase
+{
+    private readonly ProductRepository _repository;
+
+    public ProductsController(
+        ProductRepository repository)
+    {
+        _repository = repository;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetProducts()
+    {
+        var products =
+            await _repository.GetProductsAsync();
+
+        return Ok(products);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetProduct(int id)
+    {
+        var product =
+            await _repository.GetProductAsync(id);
+
+        if (product == null)
+            return NotFound();
+
+        return Ok(product);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AddProduct(
+        Product product)
+    {
+        await _repository.AddProductAsync(product);
+
+        return Ok(product);
+    }
+}
+{
+  "ConnectionStrings": {
+    "DefaultConnection":
+      "Server=.;Database=ECommerceDb;Trusted_Connection=True;TrustServerCertificate=True"
+  }
+}
